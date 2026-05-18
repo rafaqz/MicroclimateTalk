@@ -1,0 +1,61 @@
+name: Build & deploy talk
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      JULIA_NUM_THREADS: auto
+      RASTERDATASOURCES_PATH: ${{ github.workspace }}/rasterdata
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: '1.11'
+
+      - uses: julia-actions/cache@v2
+
+      - name: Cache RasterDataSources downloads
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.RASTERDATASOURCES_PATH }}
+          key: rasterdata-${{ runner.os }}-v1
+
+      - name: Install Julia deps
+        run: julia --project=. -e 'using Pkg; Pkg.instantiate(); Pkg.precompile()'
+
+      - name: Generate figures
+        run: julia --project=. --threads=auto src/generate_figures.jl
+
+      - uses: quarto-dev/quarto-actions/setup@v2
+
+      - name: Render Quarto site
+        run: quarto render
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

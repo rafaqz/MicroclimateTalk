@@ -1,0 +1,10 @@
+_site/
+.quarto/
+*_files/
+*_cache/
+figures/*.png
+figures/*.gif
+!figures/.gitkeep
+rasterdata/
+Manifest.toml
+.DS_Store

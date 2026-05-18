@@ -1,0 +1,27 @@
+project:
+  type: website
+  output-dir: _site
+  render:
+    - talk.qmd
+    - index.qmd
+
+website:
+  title: "Microclimate.jl"
+  navbar:
+    left:
+      - href: index.qmd
+        text: Home
+      - href: talk.qmd
+        text: Slides
+
+format:
+  revealjs:
+    theme: simple
+    slide-number: true
+    incremental: false
+    code-line-numbers: false
+    code-block-height: 600px
+    highlight-style: github
+    width: 1280
+    height: 800
+    margin: 0.05

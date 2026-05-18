@@ -1,0 +1,280 @@
+---
+title: "Microclimate.jl"
+subtitle: "Physics-based microclimates from points to landscapes"
+author: "Rafael Schouten — Montpellier 2026"
+format:
+  revealjs:
+    theme: simple
+    slide-number: true
+    width: 1280
+    height: 800
+    margin: 0.05
+    code-line-numbers: false
+    highlight-style: github
+---
+
+## What does a frog feel?
+
+::: {.columns}
+
+::: {.column width="55%"}
+Climate datasets report **air temperature at 2 m**.
+
+Most organisms don't live there.
+
+- A lizard on bare soil: surface T, not 2 m
+- A seedling: 1 cm air T
+- A burrowing mammal: soil T at 30 cm
+- A bryophyte on a north-facing slope: yet another regime
+
+The gap between *macroclimate* and what an organism actually experiences is the **microclimate**.
+:::
+
+::: {.column width="45%"}
+![Air vs soil-surface temperature, July day at Montpellier](figures/point_temperatures.png)
+:::
+
+:::
+
+---
+
+## Microclimate.jl
+
+A Julia rewrite of the physics behind [NicheMapR](https://github.com/mrke/NicheMapR) (Kearney & Porter 2017).
+
+::: {.incremental}
+- 1-D coupled soil-energy and atmospheric-profile model
+- Solves heat and water transport in the soil column
+- Couples to a Monin–Obukhov boundary-layer profile above
+- Produces hourly air, soil, humidity, wind at user-chosen heights and depths
+- Decoupled, composable Julia packages instead of monolithic Fortran
+:::
+
+---
+
+## The package ecosystem
+
+```{mermaid}
+%%| fig-width: 12
+flowchart TB
+  subgraph data["Data"]
+    direction LR
+    RDS[RasterDataSources.jl]
+    RAS[Rasters.jl]
+    NC[NCDatasets.jl]
+  end
+
+  subgraph forcing["Forcing"]
+    direction LR
+    SOL[SolarRadiation.jl]
+    FLU[FluidProperties.jl]
+    GEO[Geomorphometry.jl]
+  end
+
+  subgraph core["Physics core"]
+    MIC[Microclimate.jl]
+    MP[ModelParameters.jl]
+    SCI[SciML / OrdinaryDiffEq]
+  end
+
+  subgraph scale["Landscape scaling"]
+    BPG[BiophysicalGrids.jl]
+  end
+
+  subgraph eco["Downstream ecology"]
+    direction LR
+    BEH[BiophysicalBehaviour.jl]
+    HEX[HeatExchange.jl]
+    DEB[DynamicEnergyBudgets.jl]
+    SDM["Any SDM<br/>(your model here)"]
+  end
+
+  data --> forcing
+  data --> scale
+  forcing --> core
+  MP --> core
+  SCI --> core
+  core --> scale
+  core --> eco
+  scale --> eco
+
+  classDef ext fill:#eef,stroke:#557
+  classDef core fill:#fee,stroke:#a44
+  classDef scale fill:#efe,stroke:#4a4
+  class RDS,RAS,NC,SOL,FLU,GEO,MP,SCI ext
+  class MIC core
+  class BPG scale
+```
+
+::: {.fragment}
+Each box is an independent registered Julia package. Swap one out, the rest still work.
+:::
+
+---
+
+## A microclimate at a point
+
+```julia
+using BiophysicalGrids, Microclimate, FluidProperties, Unitful
+
+lon, lat  = 3.8772, 43.6108           # Montpellier
+elevation = 27.0u"m"
+
+weather = get_weather(TerraClimate, lon, lat;
+    ystart = 2000,
+    elevation,
+    vapour_pressure_method = GoffGratch(),
+)
+
+site = Site(;
+    latitude  = lat * u"°",  longitude = lon * u"°",  elevation,
+    slope     = 0.0u"°",     aspect    = 0.0u"°",
+    horizon_angles    = fill(0.0u"°", 24),
+    sky_view_fraction = 1.0,
+    albedo            = 0.15,
+    roughness_height  = 0.004u"m",
+    atmospheric_pressure = atmospheric_pressure(elevation),
+)
+
+result = simulate_microclimate(site, soil_thermal, soil_hydraulics, weather)
+```
+
+::: {.fragment}
+That's the whole API. Three calls.
+:::
+
+---
+
+## Output: a July day in Montpellier
+
+![](figures/point_temperatures.png){fig-align="center" width="85%"}
+
+Soil surface swings ≈ 30 °C diurnally — 2 m air swings ≈ 12 °C.
+
+---
+
+## Scaling up: BiophysicalGrids.jl
+
+Per-pixel `simulate_microclimate` over a DEM.
+
+```julia
+using BiophysicalGrids, Rasters, ArchGDAL, Geomorphometry
+
+# 1. SRTM DEM, reprojected to UTM
+(; utm_dem, x_coords_utm, y_coords_utm, nx_utm, ny_utm) =
+    load_utm_dem(center_lon, center_lat, extent_lon, extent_lat)
+
+# 2. Slope, aspect, horizon angles per pixel
+(; elevation_m, slope_deg, aspect_deg, horizons_u, pressure_r, ...) =
+    compute_terrain_grids(utm_dem, x_coords_utm, y_coords_utm)
+
+# 3. TerraClimate at centre, lapse-correct per pixel
+weather = get_weather(TerraClimate, center_lon, center_lat; ystart = 2000)
+
+# 4. Loop pixels (threaded), warm-start each row from the row above
+Threads.@threads for j in 1:nx_utm
+    site_ij = Site(; elevation = elevation_m[i,j], slope = slope_deg[i,j], ...)
+    result  = simulate_microclimate(site_ij, soil_thermal, soil_hydraulics, wp_ij)
+end
+```
+
+---
+
+## Mont Aigoual, Cévennes — July 2000
+
+Soil-surface temperature, 6 hours of the diurnal cycle.
+
+![](figures/grid_Tsoil0.png){fig-align="center" width="90%"}
+
+::: {.fragment}
+North-facing slopes stay cool past noon. South-facing rocks reach 50 °C.
+:::
+
+---
+
+## Air temperature at 1 cm — animated
+
+::: {.columns}
+
+::: {.column width="50%"}
+![](figures/grid_Tair1cm.gif){fig-align="center"}
+:::
+
+::: {.column width="50%"}
+- 70 × 70 SRTM pixels
+- 24 hourly snapshots
+- Same `simulate_microclimate` call as the point case
+- Threaded across columns, warm-started across rows
+- ~minutes on a laptop
+:::
+
+:::
+
+---
+
+## Air at 2 m vs soil surface
+
+::: {.columns}
+
+::: {.column width="50%"}
+**Air, 2 m** — what TerraClimate gives you.
+
+![](figures/grid_Tair2m.png)
+:::
+
+::: {.column width="50%"}
+**Soil surface** — what a lizard feels.
+
+![](figures/grid_Tsoil0.png)
+:::
+
+:::
+
+The map you need depends on the organism. Both come from the same model run.
+
+---
+
+## What you put on top is up to you
+
+`MicroResult` is a struct of hourly air, soil, humidity, wind profiles. It is forcing for *any* organism-level model:
+
+::: {.incremental}
+- **Heat budgets** — operative temperature, ectotherm activity windows (`HeatExchange.jl`, `BiophysicalBehaviour.jl`)
+- **Dynamic Energy Budget** — growth, reproduction, survival (`DynamicEnergyBudgets.jl`)
+- **Species distribution models** — replace bioclim layers with mechanistic ones; correlative or process-based, your choice
+- **Your model** — read from a struct, no FFI, no NetCDF gymnastics
+:::
+
+::: {.fragment}
+The point of the ecosystem is: **microclimate is a service, not a destination.**
+:::
+
+---
+
+## Status & roadmap
+
+::: {.incremental}
+- Microclimate.jl — validated against NicheMapR's monthly outputs at point scale
+- BiophysicalGrids.jl — terrain + per-pixel runner with lapse correction and warm-starting
+- ERA5 hourly forcing (next): drop-in `get_weather(ERA5, ...)`
+- Snow, cold-air drainage, urban canopies — in progress
+- Open source, MIT, contributions welcome
+:::
+
+---
+
+## Thanks
+
+::: {.incremental}
+- **Mike Kearney** (Melbourne) — NicheMapR, biophysical ecology vision
+- BiophysicalEcology contributors
+- Rasters.jl, SciML, JuliaGeo ecosystems
+:::
+
+::: {.fragment}
+
+**Code & slides**: [github.com/BiophysicalEcology](https://github.com/BiophysicalEcology)
+
+**This talk**: pre-rendered, source open, every figure rebuilt in CI.
+
+:::
