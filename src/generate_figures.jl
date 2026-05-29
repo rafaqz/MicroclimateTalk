@@ -1,9 +1,18 @@
-# Driver: run both demos to regenerate every figure used in the slides.
-# Used locally and by the GitHub Actions build.
+# Driver: solve every demo (or reuse cached NetCDF in `output/`), then
+# render every figure used in the slides. Plotting is in a separate file
+# so it can be iterated on without re-solving.
 
-println("=== Point demo (Montpellier) ===")
-include("point_demo.jl")
+println("=== Vector demo ===")
+include("vector_demo.jl")
 
 println()
-println("=== Grid demo (Mont Aigoual) ===")
-include("grid_demo.jl")
+println("=== Raster demo (small box, summer) ===")
+include("raster_demo.jl")
+
+println()
+println("=== Snow demos (Cévennes window) ===")
+include("snow_demo.jl")
+
+println()
+println("=== Plots ===")
+include("plot_demos.jl")

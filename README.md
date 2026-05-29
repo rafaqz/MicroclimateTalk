@@ -1,6 +1,6 @@
 # MicroclimateTalk
 
-Slides and demo code for a 10-minute talk on [Microclimate.jl](https://github.com/BiophysicalEcology/Microclimate.jl) and [BiophysicalGrids.jl](https://github.com/BiophysicalEcology/BiophysicalGrids.jl), given at Montpellier 2026.
+Slides and demo code for a 10-minute talk on [Microclimate.jl](https://github.com/BiophysicalEcology/Microclimate.jl) and [MicroclimateMapper.jl](https://github.com/BiophysicalEcology/MicroclimateMapper.jl), given at Montpellier 2026.
 
 Built with Quarto + reveal.js. Figures are regenerated from Julia in CI and the deck is published to GitHub Pages.
 

@@ -5,6 +5,10 @@ _site/
 figures/*.png
 figures/*.gif
 !figures/.gitkeep
+output/
 rasterdata/
 Manifest.toml
 .DS_Store
+
+/.quarto/
+**/*.quarto_ipynb

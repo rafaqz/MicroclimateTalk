@@ -1,24 +1,17 @@
-name = "MicroclimateTalk"
-uuid = "f3a9d2e1-7b4c-4d8e-9a2f-1c5b6d8e0f3a"
-authors = ["Rafael Schouten <rafaelschouten@gmail.com>"]
-version = "0.1.0"
-
 [deps]
-ArchGDAL = "c9ce4bd3-c3d5-55b9-8b8f-3d4a4ada3b27"
-BiophysicalGrids = "9596eb72-5668-4efb-b507-d457af0b929e"
-FluidProperties = "d16f1b92-71d3-42f3-aafa-43e5bb0efda8"
+CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
+Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 Geomorphometry = "714e3e49-7933-471a-9334-4a6a65a92f36"
 Microclimate = "fa5d2a79-de00-40ba-a9f4-ff140fbe07ba"
-Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
+MicroclimateMapper = "e0e7f0f3-f3e4-4128-a017-ba7c8101b3e1"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 RasterDataSources = "3cb90ccd-e1b6-4867-9617-4276c8b2ca36"
 Rasters = "a3a2b9e3-a471-40c9-b274-f788e487c689"
-SolarRadiation = "d01e3663-6acb-4162-92ee-c50acb918cac"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 Unitful = "1986cc42-f94f-5a68-af5c-568840ba703d"
 
 [sources]
-BiophysicalGrids = {url = "https://github.com/BiophysicalEcology/BiophysicalGrids.jl", rev = "main"}
-FluidProperties = {url = "https://github.com/BiophysicalEcology/FluidProperties.jl", rev = "main"}
-Microclimate = {url = "https://github.com/BiophysicalEcology/Microclimate.jl", rev = "main"}
-SolarRadiation = {url = "https://github.com/BiophysicalEcology/SolarRadiation.jl", rev = "main"}
+Microclimate = {path = "/home/raf/.julia/dev/Microclimate"}
+MicroclimateMapper = {path = "/home/raf/.julia/dev/MicroclimateMapper"}
+Rasters = {path = "/home/raf/.julia/dev/Rasters"}
+RasterDataSources = {path = "/home/raf/.julia/dev/RasterDataSources"}
