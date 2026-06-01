@@ -1,79 +1,86 @@
 ---
 title: "Microclimate.jl"
-subtitle: "Physics-based microclimates from points to landscapes"
+subtitle: "A new package and ecosystem for Microclimate modelling"
 author: "Rafael Schouten — Montpellier 2026"
-format:
-  revealjs:
-    theme: simple
-    slide-number: true
-    width: 1280
-    height: 800
-    margin: 0.05
-    code-line-numbers: false
-    highlight-style: github
 ---
 
-## Why microclimate?
+---
 
-Ecologists increasingly need physics-based microclimate predictions over large areas.
+## Design space for a microclimate model 
+
+We want to know the *small-scale* microclimate predictions over *large* areas, and often high temporal resolution.
 
 ::: {.incremental}
-- Bioclim layers describe **macro**climate at coarse weather-grid scales — 2 m air, monthly means.
-- Most organisms — soil fauna, lizards on rocks, seedlings under canopy — live in the **micro**climate that terrain and surface properties create at sub-metre, sub-hour scales.
-- Predicting it requires downscaling weather + DEM + land-cover through coupled physics: radiation, soil heat & water, boundary-layer profiles.
+1. **Performance**: physics solves must be fast
+2. **Composability**: new methods should easily drop in without editing the package
+3. **Flexibility**: we want to choose resulution and algorithm quality to fit the task
 :::
 
 ::: {.fragment}
-And we need a lot of it: every pixel of a continent, every day of a decade, sometimes both.
+
+::: {.columns}
+
+::: {.column width="50%"}
+We need levers: algorithm and data
 :::
 
----
+::: {.column width="50%"}
+![](figures/lever.png)
+:::
 
-## The three tensions
+:::
 
-::: {.incremental}
-1. **Performance**: per-pixel solves over continental grids must be fast.
-2. **Flexibility**: different climate regimes need different physics formulations — vapour pressure over ice, snow phase transitions, evaporation parameterisations.
-3. **Composability**: new methods from the literature should drop in without forking the package.
 :::
 
 ::: {.fragment}
-Existing tools (NicheMapR, microclima, …) bundle these decisions. You get a fixed combination, or you fork Fortran.
+
 :::
 
 ---
 
-## A different approach
+# Our approach
 
 ::: {.incremental}
-- **Declarative**: a `MicroMapModel` describes *what* to run — data sources, soil model, snow model, lapse-rate model. Reusable across sites.
-- **Modular**: every physics component is a Julia type with a multiple-dispatch interface. Add your own without editing the package.
-- **Composable**: weather sources, surface-property datasets, output layers — all plug in by passing a type.
-- **Unitful**: temperatures, pressures, lengths, fluxes all carry `Unitful` units. Bad conversions are compile errors.
+- **Declarative**: scripts describe *what* to solve, not *how*
+- **Modular**: data sources and physics component can be swapped for alternatives
+- **Univeral unit-checking**: temperatures, pressures, lengths, fluxes carry units that are checked.
+- **Readable** formulations are short and look like the math in the paper
+- **Speed** must be as fast or faster than existing packages
+- **Landuage**: Julia
 :::
+---
+
+![](figures/clbg_summary-zoomed-out.jpg){fig-align="center"}
 
 ---
 
-## Modularity by example: vapour pressure
+## Modularity (and units) example : vapour pressure
 
-`FluidProperties.jl` provides several `vapour_pressure` formulations. Each is a struct; pick one by passing it.
+`FluidProperties.jl` provides several `vapour_pressure` formulations. Each is a struct, pick one by passing it.
 
 ```julia
 using FluidProperties, Unitful
 
-vapour_pressure(GoffGratch(), 273.15u"K")     # ≈ 611 Pa
-vapour_pressure(Teten(),       273.15u"K")    # different formula, same interface
-vapour_pressure(Huang(),       273.15u"K")    # ditto
+# Three formulas, same interface
+vp = vapour_pressure(GoffGratch(), 273.15u"K")
+vp = vapour_pressure(Teten(), 273.15u"K") 
+vp = vapour_pressure(Huang(), 273.15u"K")       
+
+# Or we can use a lookup table
+vplookup = VapourPressureLookup(GoffGratch())
+vp = vapour_pressure(vplookup, 273.15u"K")
 ```
 
-::: {.fragment}
-Adding a new formulation is one method definition. No fork required, no recompile of any
-upstream package — write the method in your script.
-:::
+---
 
 ```julia
-struct MyFormulation <: VapourPressureEquation end
-FluidProperties.vapour_pressure(::MyFormulation, T) = ...
+struct Teten <: VapourPressureEquation end
+
+function vapour_pressure(::Teten, T)
+    Tc = ustrip(u"°C", T)
+    P_triple = 6.1071    # hPa, vapour pressure at triple point
+    return P_triple * exp((17.269 * Tc) / (237.3 + Tc)) * 100u"Pa"
+end
 ```
 
 ---
@@ -92,106 +99,113 @@ A Julia rewrite of the physics behind [NicheMapR](https://github.com/mrke/NicheM
 
 ---
 
-## The package ecosystem
+### Terminology
 
-```{mermaid}
-%%| fig-width: 14
-%%| fig-height: 6
-flowchart LR
-  subgraph data["Data"]
-    direction TB
-    RDS[RasterDataSources.jl]
-    RAS[Rasters.jl]
-  end
-
-  subgraph forcing["Forcing"]
-    direction TB
-    SOL[SolarRadiation.jl]
-    FLU[FluidProperties.jl]
-    GEO[Geomorphometry.jl]
-  end
-
-  subgraph core["Physics core"]
-    direction TB
-    MIC[Microclimate.jl]
-    MP[ModelParameters.jl]
-    UF[Unitful.jl]
-    SCI[SciML / OrdinaryDiffEq]
-  end
-
-  subgraph scale["Landscape"]
-    BPG[MicroclimateMapper.jl]
-  end
-
-  subgraph eco["Ecology models"]
-    direction TB
-    BEH[BiophysicalBehaviour.jl]
-    HEX[HeatExchange.jl]
-    DEB[DynamicEnergyBudgets.jl]
-    SDM["Any SDM"]
-  end
-
-  data --> forcing
-  data --> scale
-  forcing --> core
-  MP --> core
-  UF --> core
-  SCI --> core
-  core --> scale
-  core --> eco
-  scale --> eco
-
-  classDef ext fill:#eef,stroke:#557
-  classDef core fill:#fee,stroke:#a44
-  classDef scale fill:#efe,stroke:#4a4
-  class RDS,RAS,SOL,FLU,GEO,MP,UF,SCI ext
-  class MIC core
-  class BPG scale
-```
-
-::: {.fragment}
-Each box is an independent registered Julia package. Swap one out, the rest still work.
-:::
+Model: An abstract model specification that can be run anywhere
+Problem: A specification to solve in a specific spatial/temporal context
 
 ---
 
-## A microclimate at a few points
+## Solve a single microclimate
 
-One declarative `MicroMapModel` describes *what* to run — data sources, soil model, snow model.
-A `MicroPointsProblem` pairs it with the points and the year range.
+A declarative `MicroModel` describes what physics to run: soil properties,
+hydraulics, snow.
 
 ```julia
-using MicroclimateMapper, Unitful
-using Rasters: Ti, lookup
+using Microclimate, Unitful
 
 depths  = [0.0, 2.5, 5.0, 10.0, 15.0, 20.0, 30.0, 50.0, 100.0, 200.0]u"cm"
 heights = [0.01, 2.0]u"m"
 
-inner = MicroModel(;
-    days    = collect(1:365),                                # daily timesteps
+micro_model = MicroModel(;
     depths, heights,
-    soil_profile          = example_soil_profile(depths),
-    soil_properties_model = example_soil_properties_model(),
-    soil_hydraulic_model  = example_soil_hydraulic_model(depths),
-    snow_model            = SnowModel(),
-    config                = MicroConfig(; time_mode = ConsecutiveDayMode()),
+    soil_properties_model = CampbelldeVriesSoilProperties(;
+        de_vries_shape_factor = 0.1,            # 0.33 organic, 0.1 mineral
+        mineral_conductivity  = 1.25u"W/m/K",
+        mineral_heat_capacity = 870.0u"J/kg/K",
+        recirculation_power   = 4.0,
+        return_flow_threshold = 0.162,          # m³/m³
+    ),
+    soil_hydraulic_model = CampbellSoilHydraulics(;   # plant-side scalars
+        root_resistance              = 2.5e10u"m^3/kg/s",
+        stomatal_closure_potential   = -1500.0u"J/kg",
+        leaf_resistance              = 2.0e6u"m^4/kg/s",
+        stomatal_stability_parameter = 10.0,
+        root_radius                  = 0.001u"m",
+    ),
+    snow_model = SnowModel(),
+)
+```
+
+---
+
+## Run one specific microclimate: `MicroProblem`
+
+We need to define spatial/temporal inputs to pair with the model.
+
+```julia
+using Microclimate: example_site, example_monthly_weather,
+    example_daily_environment, example_hourly_environment
+
+site = example_site()
+
+inputs = MicroInputs(;
+    site,
+    soil_profile = SoilProfile(;
+        bulk_density = fill(2.56u"Mg/m^3", length(depths)),
+        mineral_density = fill(2.56u"Mg/m^3", length(depths)),
+        hydraulics = example_campbell_hydraulic_profile(depths),
+    ),
+    environment_minmax = example_monthly_weather(),
+    environment_daily  = example_daily_environment(),
+    environment_hourly = example_hourly_environment(; elevation = site.elevation),
+    initial_soil_moisture = fill(0.105, length(depths)),
 )
 
-model = MicroMapModel(;
-    micro_model             = inner,
-    dem_source              = SRTM,
-    weather_source          = NCEP{SurfaceGauss},        # daily reanalysis
-    surface_albedo_source   = 0.15,
-    roughness_height_source = 0.004u"m",
+problem = MicroProblem(micro_model, inputs)
+output  = solve(problem)
+```
+
+---
+
+## Declarative data sources: MicroclimateMapper.jl
+
+A declarative `MicroMapModel` describes what data to use with a model, and e.g. what lapse rate model.
+
+```julia
+using RasterDataSources # For SRTM, NCEP and others
+
+map_model = MicroMapModel(micro_model;
+    dem_source = SRTM,
+    weather_source = NCEP{SurfaceGauss},
+    surface_albedo_source = 0.15, # We can just use a constant too
+    roughness_height_source = 0.004u"m", # Must have correct units!
+    lapse_rate_model = EnvironmentalLapseRate(),
+)
+```
+---
+
+A `MicroVectorProblem` pairs it with points, the year range, the per-location
+`SoilProfile`, and initial conditions.
+
+```julia
+points = [
+    (3.520, 44.143),   # Camprieu (valley, ~900 m)
+    (3.582, 44.115),   # South-facing slope (~1200 m)
+    (3.581, 44.122),   # Mont Aigoual summit (~1567 m)
+]
+
+problem = MicroVectorProblem(map_model;
+    points,
+    years = 2010:2010,
+    soil_profile = example_soil_profile(depths),
+    init = (;
+        soil_moisture = fill(0.25, length(depths)),
+        snow_depth = 0.0u"cm",
+    ),
 )
 
-points = [(3.520, 44.143), (3.582, 44.115), (3.581, 44.122)]   # Cévennes
-problem = MicroPointsProblem(;
-    model, points, years = 2010:2010,
-    init = (; soil_moisture = fill(0.25, length(depths))),
-)
-
-output = solve(problem)   # RasterStack: (Dim{:point}, Ti, depth | height)
+output = solve(problem)
 ```
 
 ::: {.fragment}
@@ -218,183 +232,200 @@ Same forcing, same physics — terrain alone splits the outcomes.
 
 ---
 
-## Scaling up: `MicroMapProblem`
+## Scaling up: `MicroRasterProblem`
 
-Same `MicroMapModel`, paired with a rectangular extent instead of points.
+Like MicroVectorProblme, but with a raster `template` instead of points.
+This run uses hourly TerraClimate so we can watch a diurnal cycle.
 
 ```julia
-using MicroclimateMapper, Rasters
-using Rasters.Extents: Extent
-
 area = Extent(X = (3.554, 3.608), Y = (44.095, 44.149))   # Mont Aigoual
 
-problem = MicroMapProblem(;
-    model, area, years = 2000:2000,
-    template = SRTM,            # run on the SRTM grid (~64 × 64 cells)
+map_model = MicroMapModel(micro_model;
+    dem_source = SRTM,
+    weather_source = TerraClimate{Historical},
+    surface_albedo_source = 0.15,
+    roughness_height_source = 0.004u"m",
 )
-output  = solve(problem)        # RasterStack: (X, Y, Ti, depth | height)
+
+problem = MicroRasterProblem(map_model;
+    area,
+    years = 2000:2000,
+    template = SRTM,                            # run on the SRTM grid
+    soil_profile = example_soil_profile(depths),
+)
+
+output = solve(problem)
 ```
 
 ::: {.fragment}
 - One `solve` call. Threading over pixels happens internally.
-- Weather resampled onto the `template` grid; terrain (slope, aspect, horizon angles)
-  computed from the DEM at native resolution and aggregated onto the template.
-- Same `output_layers` schema as the point case — heatmap-ready Rasters.
+- Terrain and Weather are downloaded for the area, and resampled onto the `template` grid; 
+  derived variables are calculated (e.g. slope, aspect, horizon angles)
+- Same `output_layers` schema as the point case, but this time heatmap-ready Rasters.
 :::
 
 ---
 
 ## Mont Aigoual, Cévennes — July 2000
 
-Soil-surface temperature, 6 hours of the diurnal cycle.
+![](figures/grid_soil_temperature_5cm_drape.png){fig-align="center" width="90%"}
 
-![](figures/grid_soil_temperature_surface.png){fig-align="center" width="90%"}
-
-::: {.fragment}
-North-facing slopes stay cool past noon. South-facing rocks reach 50 °C.
-:::
+Shaded valleys take longer to warm up, east facing slopes are cooler in the afternoon.
 
 ---
 
-## Air temperature at 1 cm — animated
+## Swap the weather source, change resolution — NCEP daily
 
-::: {.columns}
-
-::: {.column width="50%"}
-![](figures/grid_air_temperature_1cm.gif){fig-align="center"}
-:::
-
-::: {.column width="50%"}
-- TerraClimate forcing at native resolution
-- 24 hourly snapshots
-- Threaded across pixels
-- Same `solve(problem)` call as the point case
-- ~minutes on a laptop
-:::
-
-:::
-
----
-
-## Air at 2 m vs soil surface
-
-::: {.columns}
-
-::: {.column width="50%"}
-**Air, 2 m** — what TerraClimate gives you.
-
-![](figures/grid_air_temperature_2m.png)
-:::
-
-::: {.column width="50%"}
-**Soil surface** — what a lizard feels.
-
-![](figures/grid_soil_temperature_surface.png)
-:::
-
-:::
-
-The map you need depends on the organism. Both come from the same model run.
-
----
-
-## Snow melting on a spring day
-
-Same model + extent, just `snow_model = SnowModel()` and an initial 30 cm snowpack.
-
-::: {.columns}
-
-::: {.column width="55%"}
-![](figures/grid_snow_depth.gif){fig-align="center"}
-:::
-
-::: {.column width="45%"}
 ```julia
-snow_problem = MicroMapProblem(;
-    model = build_model(SnowModel()),
-    area, years = 2000:2000,
-    init = (; snow_depth = 30.0u"cm"),
+snow_area = Extent(X=(3.33, 3.83), Y=(43.87, 44.37))
+# Lets use SRTM as a template, but aggregate to a lower resolution
+srtm = Raster(SRTM; extent=snow_area, lazy=true)
+template = aggregate(mean, crop(srtm; to=snow_area, touches=true), 6)
+map_model = MicroMapModel(micro_model;
+    dem_source = SRTM,
+    weather_source = NCEP{SurfaceGauss},  # swap out TerraClimate
+    surface_albedo_source = 0.15,
+    roughness_height_source = 0.004u"m",
 )
-solve(snow_problem)
-```
-
-- South-facing slopes melt out by mid-afternoon
-- North aspects + summit keep the snowpack
-- Aspect + elevation alone, no extra plumbing
-:::
-
-:::
-
----
-
-## Swap the weather source — NCEP daily, full year
-
-Same `MicroMapModel`, one field changed: `weather_source = NCEP{SurfaceGauss}`.
-Daily reanalysis + `ConsecutiveDayMode` carries snow state day-to-day across 2010.
-
-::: {.columns}
-
-::: {.column width="55%"}
-![](figures/grid_snow_depth_yearly.gif){fig-align="center"}
-:::
-
-::: {.column width="45%"}
-```julia
-yearly_problem = MicroMapProblem(;
-    model = MicroMapModel(;
-        micro_model = MicroModel(;
-            depths, heights, snow_model = SnowModel(),
-            config = MicroConfig(;
-                time_mode = ConsecutiveDayMode(spinup_first_day = true),
-            ),
-            # ...soil settings as before
-        ),
-        dem_source              = SRTM,
-        weather_source          = NCEP{SurfaceGauss},   # was TerraClimate
-        surface_albedo_source   = 0.15,
-        roughness_height_source = 0.004u"m",
+yearly_problem = MicroRasterProblem(map_model;
+    area = snow_area, years = 2010:2010,
+    soil_profile = example_soil_profile(depths),
+    init = (;
+        soil_moisture = fill(0.25, length(depths)),
+        snow_depth = 0.0u"cm",
     ),
-    area, years = 2010:2010, template = SRTM,
-    init = (; snow_depth = 0.0u"cm"),
+    template = snow_template,
 )
 solve(yearly_problem)
 ```
 
-- Snowpack grows from zero through real daily snowfall events
-- Terrain alone splits accumulation and melt across the grid
-- One-line source switch — same physics, same `solve`
-:::
-
-:::
-
 ---
 
-## What you put on top is up to you
-
-The `RasterStack` from `solve(problem)` is forcing for *any* organism-level model:
-
-::: {.incremental}
-- **Heat budgets** — operative temperature, ectotherm activity windows (`HeatExchange.jl`, `BiophysicalBehaviour.jl`)
-- **Dynamic Energy Budget** — growth, reproduction, survival (`DynamicEnergyBudgets.jl`)
-- **Species distribution models** — replace bioclim layers with mechanistic ones; correlative or process-based, your choice
-- **Your model** — read from a `RasterStack`, no FFI, no NetCDF gymnastics
-:::
-
-::: {.fragment}
-**Microclimate is a service, not a destination.**
-:::
+![](figures/grid_snow_depth_yearly.gif){fig-align="center"}
 
 ---
 
 ## Status & roadmap
 
 ::: {.incremental}
-- Microclimate.jl — validated against NicheMapR's monthly outputs at point scale
-- MicroclimateMapper.jl — declarative `MicroMapModel` + `MicroMapProblem` / `MicroPointsProblem` API
-- Weather sources: NCEP daily, AWAP daily, ERA5 hourly, TerraClimate / CHELSA / WorldClim monthly
-- Snow model with consecutive-day accumulation/melt
-- Cold-air drainage, urban canopies — in progress
-- Open source, MIT, contributions welcome
+- Microclimate.jl is validated against NicheMapR output
+- Packages not yet registered, but soon
+- Some syntax still in flux
+- Cold-air drainage and water runoff models — in progress
+- Open source, MIT licensed, contributions welcome!
+:::
+
+---
+
+## The package ecosystem
+
+```{dot}
+//| fig-width: 10
+//| fig-height: 4.5
+digraph G {
+  bgcolor="transparent";
+  rankdir=LR;
+  splines=curved;
+  nodesep=0.18;
+  ranksep=0.7;
+  pad=0.15;
+  fontname="Palatino,Charter,Georgia,serif";
+
+  node [
+    shape=box,
+    style="rounded,filled",
+    fillcolor="#fffff8",
+    color="#666666",
+    fontname="Palatino,Charter,Georgia,serif",
+    fontsize=12,
+    fontcolor="#111111",
+    margin="0.18,0.08",
+    penwidth=0.9
+  ];
+
+  edge [
+    color="#999999",
+    penwidth=0.9,
+    arrowsize=0.6,
+    arrowhead=vee
+  ];
+
+  subgraph cluster_base {
+    label=<<i>Base</i>>;
+    fontsize=13;
+    fontcolor="#555555";
+    style="dashed,rounded";
+    color="#bbbbbb";
+    margin=14;
+    UF  [label="Unitful.jl"];
+    SOL [label="SolarRadiation.jl", color="#a00000", fontcolor="#a00000", penwidth=1.4];
+    FLU [label="FluidProperties.jl", color="#a00000", fontcolor="#a00000", penwidth=1.4];
+  }
+
+  subgraph cluster_core {
+    label=<<i>Physics core</i>>;
+    fontsize=13;
+    fontcolor="#555555";
+    style="dashed,rounded";
+    color="#bbbbbb";
+    margin=14;
+    MP  [label="ModelParameters.jl"];
+    MIC [label=<<b>Microclimate.jl</b>>, color="#a00000", fontcolor="#a00000", penwidth=1.4];
+    SCI [label="SciML / OrdinaryDiffEq.jl"];
+  }
+
+  subgraph cluster_scale {
+    label=<<i>Landscape</i>>;
+    fontsize=13;
+    fontcolor="#555555";
+    style="dashed,rounded";
+    color="#bbbbbb";
+    margin=14;
+    RAS [label="Rasters.jl"];
+    RDS [label="RasterDataSources.jl"];
+    GEO [label="Geomorphometry.jl"];
+    MCP [label=<<b>MicroclimateMapper.jl</b>>, color="#a00000", fontcolor="#a00000", penwidth=1.4];
+  }
+
+  subgraph cluster_eco {
+    label=<<i>Ecology models</i>>;
+    fontsize=13;
+    fontcolor="#555555";
+    style="dashed,rounded";
+    color="#bbbbbb";
+    margin=14;
+    BBE [label="BiophysicalBehaviour.jl", color="#a00000", fontcolor="#a00000", penwidth=1.4];
+    HEX [label="HeatExchange.jl", color="#a00000", fontcolor="#a00000", penwidth=1.4];
+  }
+
+  subgraph cluster_bio {
+    label=<<i>Biogeography models</i>>;
+    fontsize=13;
+    fontcolor="#555555";
+    style="dashed,rounded";
+    color="#bbbbbb";
+    margin=14;
+    SDM [label="SpeciesDistributionModels.jl"];
+    ANM [label="AnimalMapper.jl", style="dashed,rounded,filled", color="#a00000", fontcolor="#a00000", penwidth=1.4];
+    PLM [label="PlantMapper.jl", style="dashed,rounded,filled", color="#a00000", fontcolor="#a00000", penwidth=1.4];
+  }
+
+  // Inter-cluster flow (anchored on the core nodes of each layer)
+  SOL  -> MIC [ltail=cluster_forcing, lhead=cluster_core];
+  FLU  -> MIC [ltail=cluster_forcing, lhead=cluster_core];
+  MIC  -> MCP [ltail=cluster_core, lhead=cluster_scale];
+  MIC  -> HEX [ltail=cluster_scale, lhead=cluster_eco];
+  MCP  -> SDM [ltail=cluster_scale, lhead=cluster_eco];
+  BBE  -> ANM [ltail=cluster_scale, lhead=cluster_eco];
+  HEX  -> ANM [ltail=cluster_scale, lhead=cluster_eco];
+  HEX  -> PLM [ltail=cluster_scale, lhead=cluster_eco];
+}
+```
+
+::: {.diagram-legend}
+[ ]{.swatch .existing} existing &nbsp;&nbsp;
+[ ]{.swatch .planned} planned &nbsp;&nbsp;
+[ ]{.swatch .external} external
 :::
 
 ---
@@ -403,14 +434,11 @@ The `RasterStack` from `solve(problem)` is forcing for *any* organism-level mode
 
 ::: {.incremental}
 - **Mike Kearney** (Melbourne) — NicheMapR, biophysical ecology vision
-- BiophysicalEcology contributors
-- Rasters.jl, SciML, JuliaGeo ecosystems
+- Open source contributors: JuliaGeo (spatial data), Makie (plots), SciML (solvers) ecosystems
 :::
 
 ::: {.fragment}
 
 **Code & slides**: [github.com/BiophysicalEcology](https://github.com/BiophysicalEcology)
-
-**This talk**: pre-rendered, source open, every figure rebuilt in CI.
 
 :::

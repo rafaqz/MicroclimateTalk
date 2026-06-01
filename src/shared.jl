@@ -10,7 +10,6 @@ using Rasters: Ti, X, Y, lookup, aggregate
 using Rasters.Extents: Extent
 using Statistics: mean
 using Dates
-using Printf
 using Unitful
 using CairoMakie
 

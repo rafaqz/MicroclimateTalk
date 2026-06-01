@@ -12,9 +12,8 @@ year = 2000
 micro_model = MicroModel(;
     depths,
     heights,
-    soil_profile          = example_soil_profile(depths),
     soil_properties_model = example_soil_properties_model(),
-    soil_hydraulic_model  = example_soil_hydraulic_model(depths),
+    soil_hydraulic_model  = example_soil_hydraulic_model(),
     snow_model            = NoSnow(),
 )
 
@@ -27,10 +26,11 @@ map_model = MicroMapModel(;
 )
 
 problem = MicroRasterProblem(;
-    model    = map_model,
+    model        = map_model,
     area,
-    years    = year:year,
-    template = SRTM,
+    years        = year:year,
+    template     = SRTM,
+    soil_profile = example_soil_profile(depths),
 )
 
 output = solve(problem)

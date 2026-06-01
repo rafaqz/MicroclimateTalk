@@ -2,8 +2,7 @@ _site/
 .quarto/
 *_files/
 *_cache/
-figures/*.png
-figures/*.gif
+figures/*
 !figures/.gitkeep
 output/
 rasterdata/

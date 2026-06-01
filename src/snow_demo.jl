@@ -1,9 +1,11 @@
-# Snow demos — two scenarios over a ~55 km × 55 km Cévennes window
-# centred on Mont Aigoual. SRTM is loaded at native resolution and
-# aggregated by 6 to a 100×100 template so the runs finish in minutes
-# while still showing real spatial structure.
+# Year-long snow demo — Cévennes window centred on Mont Aigoual.
+# SRTM is loaded at native resolution and aggregated by 6 to a 100×100
+# template so the run finishes in minutes while still showing real spatial
+# structure. Daily NCEP forcing triggers `ConsecutiveDayMode`, so the snow
+# state carries day-to-day across the year.
 #
-# Outputs cached to `output/snow_spring.nc` + `output/snow_yearly.nc`.
+# Only `snow_depth` is plotted (talk uses `grid_snow_depth_yearly.gif`),
+# so we cache just that layer to `output/snow_yearly.nc`.
 
 include("shared.jl")
 
@@ -18,43 +20,10 @@ println("Snow template grid: $(size(snow_template))")
 snow_micro_model = MicroModel(;
     depths,
     heights,
-    soil_profile          = example_soil_profile(depths),
     soil_properties_model = example_soil_properties_model(),
-    soil_hydraulic_model  = example_soil_hydraulic_model(depths),
+    soil_hydraulic_model  = example_soil_hydraulic_model(),
     snow_model            = SnowModel(),
 )
-
-# ---------------------------------------------------------------------------
-# Scenario 1 — spring snowmelt (TerraClimate, 30 cm initial snowpack)
-# ---------------------------------------------------------------------------
-# Monthly resolution triggers NonConsecutiveDayMode: each month is a
-# representative day re-using the 30 cm initial snowpack.
-
-spring_map_model = MicroMapModel(;
-    micro_model             = snow_micro_model,
-    dem_source              = SRTM,
-    weather_source          = TerraClimate{Historical},
-    surface_albedo_source   = 0.15,
-    roughness_height_source = 0.004u"m",
-)
-
-spring_problem = MicroRasterProblem(;
-    model    = spring_map_model,
-    area     = snow_area,
-    years    = 2000:2000,
-    template = snow_template,
-    init     = (; snow_depth = 30.0u"cm"),
-)
-
-spring_output = solve(spring_problem)
-
-write(joinpath(OUTPUT_DIR, "snow_spring.nc"), strip_to_canonical(spring_output); force = true)
-
-# ---------------------------------------------------------------------------
-# Scenario 2 — year-long snow (NCEP daily, ConsecutiveDayMode)
-# ---------------------------------------------------------------------------
-# Daily resolution triggers ConsecutiveDayMode automatically. Snowpack
-# accumulates and melts day to day across the year.
 
 yearly_map_model = MicroMapModel(;
     micro_model             = snow_micro_model,
@@ -65,11 +34,12 @@ yearly_map_model = MicroMapModel(;
 )
 
 yearly_problem = MicroRasterProblem(;
-    model    = yearly_map_model,
-    area     = snow_area,
-    years    = 2010:2010,
-    template = snow_template,
-    init     = (;
+    model        = yearly_map_model,
+    area         = snow_area,
+    years        = 2010:2010,
+    template     = snow_template,
+    soil_profile = example_soil_profile(depths),
+    init         = (;
         soil_moisture = fill(0.25, length(depths)),
         snow_depth    = 0.0u"cm",
     ),
@@ -77,4 +47,5 @@ yearly_problem = MicroRasterProblem(;
 
 yearly_output = solve(yearly_problem)
 
-write(joinpath(OUTPUT_DIR, "snow_yearly.nc"), strip_to_canonical(yearly_output); force = true)
+write(joinpath(OUTPUT_DIR, "snow_yearly.nc"),
+    strip_to_canonical(yearly_output[(:snow_depth,)]); force = true)

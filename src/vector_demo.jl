@@ -1,9 +1,9 @@
 # Point microclimate at three Cévennes sites, winter 2010.
 #
-# Daily NCEP reanalysis forcing; no snow model. The three sites share the
-# same NCEP cell (~2.5° resolution) — terrain lapse-correction and aspect
-# alone explain the differences. The solve is only ~14 s so we don't cache
-# it; `plot_demos.jl` re-includes this file when plotting.
+# Daily NCEP reanalysis forcing with a snow model. The three sites share the
+# same NCEP cell (~2.5° resolution) — terrain lapse-correction, aspect, and
+# elevation-driven snowpack explain the differences. The solve is only ~14 s
+# so we don't cache it; `plot_demos.jl` re-includes this file when plotting.
 
 include("shared.jl")
 
@@ -21,10 +21,9 @@ model = MicroMapModel(;
     micro_model = MicroModel(;
         depths,
         heights,
-        soil_profile          = example_soil_profile(depths),
         soil_properties_model = example_soil_properties_model(),
-        soil_hydraulic_model  = example_soil_hydraulic_model(depths),
-        snow_model            = NoSnow(),
+        soil_hydraulic_model  = example_soil_hydraulic_model(),
+        snow_model            = SnowModel(),
     ),
     dem_source              = SRTM,
     weather_source          = NCEP{SurfaceGauss},
@@ -35,8 +34,12 @@ model = MicroMapModel(;
 problem = MicroVectorProblem(;
     model,
     points,
-    years = year:year,
-    init  = (; soil_moisture = fill(0.25, length(depths))),
+    years        = year:year,
+    soil_profile = example_soil_profile(depths),
+    init         = (;
+        soil_moisture = fill(0.25, length(depths)),
+        snow_depth    = 0.0u"cm",
+    ),
 )
 
 output = solve(problem)

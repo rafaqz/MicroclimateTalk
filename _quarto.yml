@@ -16,12 +16,12 @@ website:
 
 format:
   revealjs:
-    theme: simple
+    theme: [simple, tufte.scss]
     slide-number: true
     incremental: false
     code-line-numbers: false
     code-block-height: 600px
-    highlight-style: github
+    highlight-style: pygments
     width: 1280
     height: 800
-    margin: 0.05
+    margin: 0.06

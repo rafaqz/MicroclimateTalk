@@ -1,0 +1,339 @@
+/*-- scss:defaults --*/
+
+// Tufte-inspired palette: warm off-white background, dark slate text,
+// brick-red as the only accent. Sized to remain readable from a projector.
+
+$body-bg:          #fffff8;
+$body-color:       #111111;
+$link-color:       #a00000;
+$selection-bg:     #ffe9b3;
+
+$presentation-font-size-root:     30px;
+$presentation-heading-font:       "Charter", "Iowan Old Style", "Palatino", "Georgia", serif;
+$presentation-font:               "Charter", "Iowan Old Style", "Palatino", "Georgia", serif;
+$presentation-heading-color:      #111111;
+$presentation-heading-font-weight: 400;
+$presentation-heading-text-shadow: none;
+$presentation-heading-text-transform: none;
+$presentation-h1-font-size:       1.7em;
+$presentation-h2-font-size:       1.35em;
+$presentation-h3-font-size:       1.1em;
+$presentation-h4-font-size:       1em;
+$presentation-line-height:        1.45;
+$code-block-font-size:            0.72em;
+
+/*-- scss:rules --*/
+
+.reveal {
+  font-family: "Charter", "Iowan Old Style", "Palatino", "Georgia", serif;
+  color: #111;
+}
+
+.reveal .slides {
+  text-align: left;
+}
+
+.reveal section {
+  // Tufte-style narrower measure — keeps lines from sprawling across 1280px
+  max-width: 1080px;
+  margin: 0 auto;
+}
+
+.reveal h1,
+.reveal h2,
+.reveal h3,
+.reveal h4 {
+  font-family: "Charter", "Iowan Old Style", "Palatino", "Georgia", serif;
+  font-weight: 400;
+  font-style: italic;
+  color: #111;
+  letter-spacing: 0;
+  text-shadow: none;
+  margin-bottom: 0.6em;
+  border-bottom: 1px solid #d8d4c8;
+  padding-bottom: 0.2em;
+}
+
+// Title slide: drop the heavy block and let the title breathe.
+.reveal .title-slide h1.title {
+  font-style: italic;
+  font-weight: 400;
+  font-size: 2em;
+  border-bottom: none;
+  margin-bottom: 0.3em;
+}
+
+.reveal .title-slide .subtitle,
+.reveal .title-slide p.subtitle {
+  font-style: normal;
+  color: #444;
+  font-size: 1em;
+  margin-bottom: 1.5em;
+}
+
+.reveal .title-slide .author,
+.reveal .title-slide p.author {
+  color: #555;
+  font-size: 0.85em;
+}
+
+// Body copy & lists — restrained, narrow measure, generous leading.
+.reveal p,
+.reveal li {
+  font-size: 0.95em;
+  line-height: 1.5;
+}
+
+.reveal ul,
+.reveal ol {
+  margin-left: 1.2em;
+}
+
+.reveal ul li {
+  list-style-type: disc;
+}
+
+.reveal ul li::marker {
+  color: #888;
+}
+
+.reveal strong {
+  font-weight: 600;
+  color: #111;
+}
+
+.reveal em {
+  font-style: italic;
+}
+
+// Tufte's signature accent — only used where authors explicitly mark it.
+.reveal .accent,
+.reveal a {
+  color: #a00000;
+  text-decoration: none;
+}
+
+.reveal a:hover {
+  text-decoration: underline;
+}
+
+// Code: a quieter monospace, smaller than body, no heavy chrome.
+.reveal pre {
+  background: transparent;
+  box-shadow: none;
+  border: none;
+  margin: 0.6em 0;
+  width: 100%;
+}
+
+.reveal code {
+  font-family: "Inconsolata", "Menlo", "Consolas", monospace;
+  font-size: 0.85em;
+}
+
+.reveal pre code {
+  background: #f5f1e6;
+  border-left: 2px solid #c9c3b0;
+  padding: 0.6em 0.9em;
+  border-radius: 0;
+  line-height: 1.4;
+  max-height: 600px;
+}
+
+// Inline code inside body text.
+.reveal :not(pre) > code {
+  background: #f0ecdf;
+  padding: 0 0.25em;
+  border-radius: 2px;
+  color: #5a2a00;
+}
+
+// Images: no shadows, no borders — let the figure stand alone.
+.reveal img {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  margin: 0.4em auto;
+}
+
+.reveal figure {
+  margin: 0.6em 0;
+}
+
+.reveal figcaption {
+  font-size: 0.75em;
+  color: #555;
+  font-style: italic;
+  margin-top: 0.3em;
+}
+
+// Slide number: barely there.
+.reveal .slide-number {
+  background: transparent;
+  color: #b0a890;
+  font-family: "Charter", serif;
+  font-size: 0.65em;
+  right: 12px;
+  bottom: 10px;
+}
+
+// Progress bar: a hairline, not a slab.
+.reveal .progress {
+  height: 2px;
+  color: #a00000;
+  background: rgba(0, 0, 0, 0.04);
+}
+
+// Controls — keep but mute them.
+.reveal .controls {
+  color: #c0b9a3;
+}
+
+// Two-column layout used by .columns: tighten the gap.
+.reveal .columns {
+  gap: 1.5em;
+}
+
+// Package-ecosystem layout: typographic columns separated by light arrows,
+// no boxes, all per-column items aligned to the same baseline.
+.reveal .pkg-flow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.6em;
+  margin: 1.2em 0;
+  font-size: 0.78em;
+  line-height: 1.45;
+}
+
+.reveal .pkg-flow .pkg-col {
+  flex: 1 1 0;
+  text-align: left;
+}
+
+.reveal .pkg-flow .pkg-col em {
+  display: block;
+  font-style: italic;
+  font-weight: 400;
+  color: #444;
+  margin-bottom: 0.4em;
+  font-size: 0.95em;
+  border-bottom: 1px solid #d8d4c8;
+  padding-bottom: 0.15em;
+}
+
+.reveal .pkg-flow .pkg-col code {
+  background: transparent;
+  padding: 0;
+  color: #111;
+  font-size: 0.9em;
+}
+
+.reveal .pkg-flow .pkg-col strong code {
+  color: #a00000;
+}
+
+.reveal .pkg-flow .pkg-arrow {
+  flex: 0 0 auto;
+  align-self: center;
+  color: #b0a890;
+  font-size: 1.4em;
+  padding: 0 0.1em;
+}
+
+// Legend below the package-ecosystem diagram. Swatches mirror the node
+// outline styles in the dot block: brick-red solid for "existing", brick-red
+// dashed for "planned", medium grey for "external".
+.reveal .diagram-legend {
+  text-align: center;
+  font-size: 0.62em;
+  margin-top: 0.4em;
+  color: #444;
+  font-family: "Palatino", "Charter", "Georgia", serif;
+}
+
+.reveal .diagram-legend .swatch {
+  display: inline-block;
+  width: 22px;
+  height: 12px;
+  vertical-align: middle;
+  margin-right: 0.35em;
+  border-radius: 4px;
+  background: transparent;
+}
+
+.reveal .diagram-legend .swatch.existing {
+  border: 1.4px solid #a00000;
+}
+
+.reveal .diagram-legend .swatch.planned {
+  border: 1.4px dashed #a00000;
+}
+
+.reveal .diagram-legend .swatch.external {
+  border: 1px solid #666666;
+}
+
+// Slide-embedded SVG (Graphviz / Mermaid / cell output): fit, don't scroll.
+// Reveal's default overflows long content; force the figure to shrink to the
+// available slide area instead.
+.reveal .slides section .cell-output-display,
+.reveal .slides section figure.figure {
+  overflow: visible;
+}
+
+.reveal .slides section .cell-output-display > svg,
+.reveal .slides section figure svg,
+.reveal .slides section svg.graphviz {
+  max-width: 100%;
+  max-height: 70vh;
+  width: auto !important;
+  height: auto !important;
+  display: block;
+  margin: 0 auto;
+}
+
+// Mermaid diagrams: transparent fills with rounded outlines.
+.reveal .mermaid .node rect,
+.reveal .mermaid .node polygon,
+.reveal .mermaid .cluster rect {
+  fill: transparent !important;
+  stroke: #555 !important;
+  stroke-width: 1px !important;
+  rx: 8 !important;
+  ry: 8 !important;
+}
+
+.reveal .mermaid .cluster rect {
+  stroke: #aaa !important;
+  stroke-dasharray: 2 3;
+  rx: 12 !important;
+  ry: 12 !important;
+}
+
+.reveal .mermaid .node .label,
+.reveal .mermaid .cluster .label {
+  font-family: "Charter", serif !important;
+  color: #111 !important;
+  font-size: 14px !important;
+}
+
+.reveal .mermaid .edgePath path {
+  stroke: #888 !important;
+  stroke-width: 1px !important;
+}
+
+// Blockquote — Tufte uses sidebar-style asides; we approximate with a left rule.
+.reveal blockquote {
+  border-left: 2px solid #c9c3b0;
+  background: transparent;
+  box-shadow: none;
+  padding: 0.2em 0.8em;
+  font-style: italic;
+  color: #333;
+}
+
+// Fragment incremental items: ease them in, no pop.
+.reveal .fragment {
+  transition: opacity 0.3s ease;
+}
