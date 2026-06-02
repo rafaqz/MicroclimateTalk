@@ -6,33 +6,31 @@ author: "Rafael Schouten — Montpellier 2026"
 
 ---
 
-## Design space for a microclimate model 
+# Microclimate modelling
 
-We want to know the *small-scale* microclimate predictions over *large* areas, and often high temporal resolution.
 
 ::: {.incremental}
-1. **Performance**: physics solves must be fast
-2. **Composability**: new methods should easily drop in without editing the package
-3. **Flexibility**: we want to choose resulution and algorithm quality to fit the task
+- Microclimate modellers are greeedy
+- We want *small-scale* microclimate predictions over *large* areas, and often high temporal resolution.
+- This means heavy computations
+- But we also need to quickly explore new ideas
 :::
 
 ::: {.fragment}
 
 ::: {.columns}
 
-::: {.column width="50%"}
-We need levers: algorithm and data
+::: {.column width="60%"}
+We need levers:
+
+*To easily switch between research modes
 :::
 
-::: {.column width="50%"}
+::: {.column width="40%"}
 ![](figures/lever.png)
 :::
 
 :::
-
-:::
-
-::: {.fragment}
 
 :::
 
@@ -42,11 +40,11 @@ We need levers: algorithm and data
 
 ::: {.incremental}
 - **Declarative**: scripts describe *what* to solve, not *how*
-- **Modular**: data sources and physics component can be swapped for alternatives
+- **Modular**: data sources and model component can be swapped for alternatives
 - **Univeral unit-checking**: temperatures, pressures, lengths, fluxes carry units that are checked.
-- **Readable** formulations are short and look like the math in the paper
-- **Speed** must be as fast or faster than existing packages
-- **Landuage**: Julia
+- **Readable**: formulations are short and look like the math in the paper
+- **Speed**: must be as fast or faster than existing packages
+- **Language**: Julia
 :::
 ---
 
@@ -54,69 +52,51 @@ We need levers: algorithm and data
 
 ---
 
-## Modularity (and units) example : vapour pressure
+## Modularity (and units) example
 
-`FluidProperties.jl` provides several `vapour_pressure` formulations. Each is a struct, pick one by passing it.
+::: {.vcenter}
+`FluidProperties.jl` provides `vapour_pressure` formulations
 
 ```julia
 using FluidProperties, Unitful
 
 # Three formulas, same interface
 vp = vapour_pressure(GoffGratch(), 273.15u"K")
-vp = vapour_pressure(Teten(), 273.15u"K") 
-vp = vapour_pressure(Huang(), 273.15u"K")       
+vp = vapour_pressure(Teten(), 0.0u"°C") 
+vp = vapour_pressure(Huang(), 0.0u"°C")       
 
 # Or we can use a lookup table
 vplookup = VapourPressureLookup(GoffGratch())
 vp = vapour_pressure(vplookup, 273.15u"K")
 ```
 
----
-
-```julia
-struct Teten <: VapourPressureEquation end
-
-function vapour_pressure(::Teten, T)
-    Tc = ustrip(u"°C", T)
-    P_triple = 6.1071    # hPa, vapour pressure at triple point
-    return P_triple * exp((17.269 * Tc) / (237.3 + Tc)) * 100u"Pa"
-end
-```
+:::
 
 ---
 
 ## Microclimate.jl
 
-A Julia rewrite of the physics behind [NicheMapR](https://github.com/mrke/NicheMapR) (Kearney & Porter 2017).
+A Julia rewrite of the core physics of [NicheMapR](https://github.com/mrke/NicheMapR) (Kearney & Porter 2017).
 
-::: {.incremental}
-- 1-D coupled soil-energy + atmospheric-profile model.
-- Heat & water transport in the soil column, Monin–Obukhov boundary layer above.
-- Optional `SnowModel` with consecutive-day accumulation/melt.
-- Hourly air, soil, humidity, wind at user-chosen heights and depths.
-- Decoupled, composable Julia packages instead of monolithic Fortran.
-:::
 
----
-
+::: {.fragment}
 ### Terminology
 
-Model: An abstract model specification that can be run anywhere
-Problem: A specification to solve in a specific spatial/temporal context
+**Model**: An abstract specification of a physical model without context
+
+**Problem**: A model with a specific place and time that we can `solve` it for
+:::
 
 ---
 
 ## Solve a single microclimate
 
-A declarative `MicroModel` describes what physics to run: soil properties,
-hydraulics, snow.
+A `MicroModel` declares what physics to run: soil, hydraulics, snow.
 
 ```julia
 using Microclimate, Unitful
-
 depths  = [0.0, 2.5, 5.0, 10.0, 15.0, 20.0, 30.0, 50.0, 100.0, 200.0]u"cm"
 heights = [0.01, 2.0]u"m"
-
 micro_model = MicroModel(;
     depths, heights,
     soil_properties_model = CampbelldeVriesSoilProperties(;
@@ -139,18 +119,12 @@ micro_model = MicroModel(;
 
 ---
 
-## Run one specific microclimate: `MicroProblem`
-
-We need to define spatial/temporal inputs to pair with the model.
+::: {.vcenter}
+Combined with inputs we can define a `MicroProblem`
 
 ```julia
-using Microclimate: example_site, example_monthly_weather,
-    example_daily_environment, example_hourly_environment
-
-site = example_site()
-
 inputs = MicroInputs(;
-    site,
+    site = example_site(),
     soil_profile = SoilProfile(;
         bulk_density = fill(2.56u"Mg/m^3", length(depths)),
         mineral_density = fill(2.56u"Mg/m^3", length(depths)),
@@ -158,35 +132,46 @@ inputs = MicroInputs(;
     ),
     environment_minmax = example_monthly_weather(),
     environment_daily  = example_daily_environment(),
-    environment_hourly = example_hourly_environment(; elevation = site.elevation),
+    environment_hourly = example_hourly_environment(),
     initial_soil_moisture = fill(0.105, length(depths)),
 )
-
 problem = MicroProblem(micro_model, inputs)
-output  = solve(problem)
+output = solve(problem)
 ```
+:::                                         
 
+---
+
+::: {.vcenter}
+We cheated using `example_inputs`, but that was still a lot of code! 
+
+We dont want to do that repeatedly, we want to declare our datasources...
+:::                                         
+                  
+ 
 ---
 
 ## Declarative data sources: MicroclimateMapper.jl
 
-A declarative `MicroMapModel` describes what data to use with a model, and e.g. what lapse rate model.
+::: {.vcenter}
+A `MicroMapModel` declares what data to use with a model
 
 ```julia
 using RasterDataSources # For SRTM, NCEP and others
 
-map_model = MicroMapModel(micro_model;
-    dem_source = SRTM,
-    weather_source = NCEP{SurfaceGauss},
-    surface_albedo_source = 0.15, # We can just use a constant too
-    roughness_height_source = 0.004u"m", # Must have correct units!
-    lapse_rate_model = EnvironmentalLapseRate(),
+map_model = MicroMapModel(micro_model;   # Reuse the micro model
+    dem_source = SRTM,                   # Download SRTM elevation tiles
+    weather_source = NCEP{SurfaceGauss}, # Use NCEP weather
+    surface_albedo_source = 0.15,        # We declare constants too
+    roughness_height_source = 0.004u"m", # They must have correct units!
 )
 ```
+:::                                         
+
 ---
 
-A `MicroVectorProblem` pairs it with points, the year range, the per-location
-`SoilProfile`, and initial conditions.
+::: {.vcenter}
+A problem pairs it with spatial points, the year range, and initial conditions.
 
 ```julia
 points = [
@@ -205,12 +190,9 @@ problem = MicroVectorProblem(map_model;
     ),
 )
 
-output = solve(problem)
+output = solve(problem) # 63 seconds, 365 days 24 hours, laptop
 ```
-
-::: {.fragment}
-Same NCEP cell drives all three points — terrain lapse-correction does the rest.
-:::
+:::                                         
 
 ---
 
@@ -218,51 +200,34 @@ Same NCEP cell drives all three points — terrain lapse-correction does the res
 
 ![](figures/point_snow_depth.png){fig-align="center" width="85%"}
 
-Daily NCEP forcing in `ConsecutiveDayMode`: snow accumulates and melts across the winter.
-Same weather cell, three elevations, ≈ 50 cm difference in peak snowpack.
-
 ---
 
 ## A representative winter day
 
 ![](figures/point_temperatures.png){fig-align="center" width="85%"}
 
-Hourly soil and air temperatures at each site for one mid-January day.
-Same forcing, same physics — terrain alone splits the outcomes.
-
 ---
 
 ## Scaling up: `MicroRasterProblem`
 
-Like MicroVectorProblme, but with a raster `template` instead of points.
-This run uses hourly TerraClimate so we can watch a diurnal cycle.
+Like `MicroVectorProblem`, but with a raster `template` instead of points.
 
 ```julia
 area = Extent(X = (3.554, 3.608), Y = (44.095, 44.149))   # Mont Aigoual
+years = 2000:2000 # one year
+template = SRTM # run on the SRTM grid
+soil_profile = example_soil_profile(depths),
 
-map_model = MicroMapModel(micro_model;
-    dem_source = SRTM,
-    weather_source = TerraClimate{Historical},
-    surface_albedo_source = 0.15,
-    roughness_height_source = 0.004u"m",
+map_model = MicroMapModel(micro_model;         # Same micro model
+    dem_source = SRTM,                         # SRTM elevation
+    weather_source = TerraClimate{Historical}, # Terraclimate hourly
+    surface_albedo_source = 0.15,              # Contants
+    roughness_height_source = 0.004u"m",       # ...
 )
 
-problem = MicroRasterProblem(map_model;
-    area,
-    years = 2000:2000,
-    template = SRTM,                            # run on the SRTM grid
-    soil_profile = example_soil_profile(depths),
-)
-
-output = solve(problem)
+problem = MicroRasterProblem(map_model; area, years, template, soil_profile)
+output = solve(problem) # 80 seconds, 66*66, monthly 24 hours, laptop
 ```
-
-::: {.fragment}
-- One `solve` call. Threading over pixels happens internally.
-- Terrain and Weather are downloaded for the area, and resampled onto the `template` grid; 
-  derived variables are calculated (e.g. slope, aspect, horizon angles)
-- Same `output_layers` schema as the point case, but this time heatmap-ready Rasters.
-:::
 
 ---
 
@@ -276,28 +241,23 @@ Shaded valleys take longer to warm up, east facing slopes are cooler in the afte
 
 ## Swap the weather source, change resolution — NCEP daily
 
+::: {.vcenter}
 ```julia
-snow_area = Extent(X=(3.33, 3.83), Y=(43.87, 44.37))
-# Lets use SRTM as a template, but aggregate to a lower resolution
-srtm = Raster(SRTM; extent=snow_area, lazy=true)
-template = aggregate(mean, crop(srtm; to=snow_area, touches=true), 6)
+# Lets use SRTM as a template, but larger area, lower resolution
+area = Extent(X=(3.33, 3.83), Y=(43.87, 44.37))
+srtm = Raster(SRTM; extent=area, lazy=true)
+template = aggregate(mean, crop(srtm; to=area, touches=true), 6)
+
 map_model = MicroMapModel(micro_model;
     dem_source = SRTM,
-    weather_source = NCEP{SurfaceGauss},  # swap out TerraClimate
+    weather_source = NCEP{SurfaceGauss}, # Swap to NCEP daily
     surface_albedo_source = 0.15,
     roughness_height_source = 0.004u"m",
 )
-yearly_problem = MicroRasterProblem(map_model;
-    area = snow_area, years = 2010:2010,
-    soil_profile = example_soil_profile(depths),
-    init = (;
-        soil_moisture = fill(0.25, length(depths)),
-        snow_depth = 0.0u"cm",
-    ),
-    template = snow_template,
-)
-solve(yearly_problem)
+problem = MicroRasterProblem(map_model; area, years, template, soil_profile)
+output = solve(problem) # 27 minutes, 100x100, 24 hours 365 days, laptop
 ```
+:::
 
 ---
 
@@ -307,17 +267,25 @@ solve(yearly_problem)
 
 ## Status & roadmap
 
+::: {.vcenter}
 ::: {.incremental}
-- Microclimate.jl is validated against NicheMapR output
-- Packages not yet registered, but soon
-- Some syntax still in flux
-- Cold-air drainage and water runoff models — in progress
-- Open source, MIT licensed, contributions welcome!
+- Microclimate.jl is validated against NicheMapR Fortran
+- Packages not yet registered, but soon!
+- Cold-air drainage and water runoff models on the way...
+- Users and contributions welcome, but not yet stable.
+:::
 :::
 
 ---
 
-## The package ecosystem
+## Thanks
+
+::: {.incremental}
+- **Mike Kearney** (Melbourne) — NicheMapR, biophysical ecology vision
+- Open source contributors: JuliaGeo (spatial data), Makie (plots), SciML (solvers) ecosystems
+:::
+
+::: {.fragment}
 
 ```{dot}
 //| fig-width: 10
@@ -427,18 +395,5 @@ digraph G {
 [ ]{.swatch .planned} planned &nbsp;&nbsp;
 [ ]{.swatch .external} external
 :::
-
----
-
-## Thanks
-
-::: {.incremental}
-- **Mike Kearney** (Melbourne) — NicheMapR, biophysical ecology vision
-- Open source contributors: JuliaGeo (spatial data), Makie (plots), SciML (solvers) ecosystems
-:::
-
-::: {.fragment}
-
-**Code & slides**: [github.com/BiophysicalEcology](https://github.com/BiophysicalEcology)
 
 :::

@@ -249,6 +249,10 @@ vector_year   = Dates.year(first(lookup(vector_output, Ti)))
 ti_vector       = lookup(vector_output, Ti)
 noon_indices    = findall(t -> hour(t) == 12, ti_vector)
 noon_dates      = collect(ti_vector[noon_indices])
+# Snow line plot covers Jan–May only — the snowpack window of interest.
+snow_window     = findall(t -> month(t) <= 5, noon_dates)
+snow_dates      = noon_dates[snow_window]
+snow_noon_idx   = noon_indices[snow_window]
 
 point_colors = [
     RGBf(0.30, 0.30, 0.30),   # valley — graphite
@@ -258,12 +262,12 @@ point_colors = [
 
 snow_figure = Figure(size = (1000, 500))
 snow_axis = Axis(snow_figure[1, 1];
-    title  = "Snow depth, $vector_year",
+    title  = "Snow depth, Jan–May $vector_year",
     xlabel = "Date", ylabel = "Snow depth (cm)",
 )
 for (i, name) in enumerate(point_labels)
-    depths_cm = view(vector_output.snow_depth; point = i, Ti = noon_indices)
-    lines!(snow_axis, noon_dates, parent(depths_cm);
+    depths_cm = view(vector_output.snow_depth; point = i, Ti = snow_noon_idx)
+    lines!(snow_axis, snow_dates, parent(depths_cm);
         label = name, color = point_colors[i], linewidth = 1.4)
 end
 axislegend(snow_axis; position = :rt, framevisible = false)
@@ -276,25 +280,56 @@ hours_of_day = hour.(ti_vector[day_indices])
 
 extract_day(layer; kw...) = parent(view(layer; Ti = day_indices, kw...))
 
+# Each variable gets its own colour scheme; the three sites within a scheme
+# go dark → mid → light (matching elevation: Valley darkest, Summit lightest).
 variable_panels = [
-    ("Air, 2 m",     i -> extract_day(vector_output.air_temperature;  point = i, height = 2)),
-    ("Air, 1 cm",    i -> extract_day(vector_output.air_temperature;  point = i, height = 1)),
-    ("Soil surface", i -> extract_day(vector_output.soil_temperature; point = i, depth  = 1)),
-    ("Soil, 10 cm",  i -> extract_day(vector_output.soil_temperature; point = i, depth  = 4)),
+    ("Air, 2 m",     :Blues,   i -> extract_day(vector_output.air_temperature;  point = i, height = 2)),
+    ("Air, 1 cm",    :Greens,  i -> extract_day(vector_output.air_temperature;  point = i, height = 1)),
+    ("Soil surface", :Oranges, i -> extract_day(vector_output.soil_temperature; point = i, depth  = 1)),
+    ("Soil, 50 cm",  :Purples, i -> extract_day(vector_output.soil_temperature; point = i, depth  = 8)),
 ]
-temperatures_figure = Figure(size = (1200, 800))
+
+# Sample three shades from each colormap: dark → mid → light.
+shade_levels = (0.95, 0.70, 0.45)
+group_colors(cmap) = [cgrad(cmap)[t] for t in shade_levels]
+
+temperatures_figure = Figure(size = (1300, 650))
 Label(temperatures_figure[0, 1:2], "$target_date";
-    fontsize = 15, halign = :left, padding = (10, 0, 0, 0))
-for (k, (label, extract)) in enumerate(variable_panels)
-    row, col = fldmod1(k, 2)
-    ax = Axis(temperatures_figure[row, col];
-        title = label, xlabel = "Hour of day", ylabel = "°C")
-    for (i, name) in enumerate(point_labels)
-        lines!(ax, hours_of_day, extract(i);
-            label = name, color = point_colors[i], linewidth = 1.4)
+    fontsize = 15, halign = :left, padding = (10, 0, 0, 0),
+    tellwidth = false)
+ax = Axis(temperatures_figure[1, 1];
+    xlabel = "Hour of day", ylabel = "Temperature (°C)")
+
+# Build line plots grouped by variable so the legend can show one group per
+# column: site goes down within a column, variable across columns.
+group_handles = Vector{Vector{Any}}()
+group_titles  = String[]
+for (group_label, cmap_name, extract) in variable_panels
+    shades  = group_colors(cmap_name)
+    handles = Any[]
+    for (i, _) in enumerate(point_labels)
+        h = lines!(ax, hours_of_day, extract(i);
+            color = shades[i], linewidth = 1.4)
+        push!(handles, h)
     end
-    k == 1 && axislegend(ax; position = :lt, framevisible = false)
+    push!(group_handles, handles)
+    push!(group_titles, group_label)
 end
+
+Legend(temperatures_figure[1, 2],
+    group_handles, [point_labels for _ in group_titles], group_titles;
+    framevisible    = false,
+    labelsize       = 11,
+    titlesize       = 12,
+    titlefont       = TUFTE_SERIF,
+    titlehalign     = :left,
+    rowgap          = 2,
+    titlegap        = 6,
+    patchsize       = (18, 2),
+    valign          = :top,
+    nbanks          = 1,
+)
+colsize!(temperatures_figure.layout, 2, Auto(0.25))
 save(joinpath(FIG_DIR, "point_temperatures.png"), temperatures_figure)
 println("  Saved $(joinpath(FIG_DIR, "point_temperatures.png"))")
 
