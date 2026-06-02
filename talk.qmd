@@ -226,7 +226,7 @@ map_model = MicroMapModel(micro_model;         # Same micro model
 )
 
 problem = MicroRasterProblem(map_model; area, years, template, soil_profile)
-output = solve(problem) # 80 seconds, 66*66, monthly 24 hours, laptop
+output = solve(problem) # 80 seconds, 66*66, monthly 24 hours, 1.25 million solves. Laptop
 ```
 
 ---
@@ -255,7 +255,7 @@ map_model = MicroMapModel(micro_model;
     roughness_height_source = 0.004u"m",
 )
 problem = MicroRasterProblem(map_model; area, years, template, soil_profile)
-output = solve(problem) # 27 minutes, 100x100, 24 hours 365 days, laptop
+output = solve(problem) # 27 minutes: 100x100, 24 hours 365 days - 87 million solves. Laptop. 
 ```
 :::
 

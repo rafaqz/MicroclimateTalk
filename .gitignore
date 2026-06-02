@@ -6,7 +6,6 @@ figures/*
 !figures/.gitkeep
 output/
 rasterdata/
-Manifest.toml
 .DS_Store
 
 /.quarto/
