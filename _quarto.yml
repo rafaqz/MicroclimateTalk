@@ -21,7 +21,7 @@ format:
     incremental: false
     code-line-numbers: false
     code-block-height: 600px
-    highlight-style: pygments
+    highlight-style: printing
     width: 1280
     height: 800
     margin: 0.06

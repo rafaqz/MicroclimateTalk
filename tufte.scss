@@ -20,13 +20,26 @@ $presentation-h2-font-size:       1.35em;
 $presentation-h3-font-size:       1.1em;
 $presentation-h4-font-size:       1em;
 $presentation-line-height:        1.45;
-$code-block-font-size:            0.72em;
+$code-block-font-size:            0.65em;
 
 /*-- scss:rules --*/
 
 .reveal {
   font-family: "Charter", "Iowan Old Style", "Palatino", "Georgia", serif;
   color: #111;
+}
+
+// Tufte-red vertical bar pinned to the left edge of every slide.
+.reveal::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 8px;
+  background: #a00000;
+  z-index: 1000;
+  pointer-events: none;
 }
 
 .reveal .slides {
@@ -133,19 +146,19 @@ $code-block-font-size:            0.72em;
 
 .reveal pre code {
   background: #f5f1e6;
-  border-left: 2px solid #c9c3b0;
   padding: 0.6em 0.9em;
   border-radius: 0;
   line-height: 1.4;
   max-height: 600px;
 }
 
-// Inline code inside body text.
+// Inline code inside body text — Tufte-style: no background, brick-red text
+// matching the accent used for links and emphasis elsewhere in the deck.
 .reveal :not(pre) > code {
-  background: #f0ecdf;
-  padding: 0 0.25em;
-  border-radius: 2px;
-  color: #5a2a00;
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+  color: #a00000;
 }
 
 // Images: no shadows, no borders — let the figure stand alone.
@@ -252,6 +265,11 @@ $code-block-font-size:            0.72em;
   font-family: "Palatino", "Charter", "Georgia", serif;
 }
 
+.reveal .diagram-legend .legend-title {
+  font-style: italic;
+  color: #333;
+}
+
 .reveal .diagram-legend .swatch {
   display: inline-block;
   width: 22px;
@@ -338,10 +356,21 @@ $code-block-font-size:            0.72em;
   transition: opacity 0.3s ease;
 }
 
-.reveal .vcenter {                                                                                      
-  position: absolute;                                                                                   
-  top: 50%;                                                                                             
-  left: 0;                                                                                              
-  right: 0;                                                                                             
-  transform: translateY(-50%);                                                                          
-}       
+// For an inline `::: {.vcenter} ... :::` block: pin its centre to the slide's
+// vertical centre, leaving horizontal layout untouched.
+.reveal .vcenter:not(section) {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  transform: translateY(-50%);
+}
+
+// For `## My slide title {.vcenter}` on the heading (class lands on `section`):
+// flex-centre the slide's contents without overriding reveal.js's positioning.
+.reveal .slides section.vcenter {
+  display: flex !important;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 100%;
+}

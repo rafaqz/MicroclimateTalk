@@ -1,10 +1,20 @@
 ---
 title: "Microclimate.jl"
-subtitle: "A new package and ecosystem for Microclimate modelling"
-author: "Rafael Schouten — Montpellier 2026"
+subtitle: "A new package for nicroclimate modelling in the BiophysicalEcology ecosystem"
+author: 
+  name: "Rafael Schouten, Michael Kearney"
+  affiliation: "University of Melbourne"
 ---
 
 ---
+
+## Microclimate.jl
+
+A Julia rewrite of the core physics of [NicheMapR](https://github.com/mrke/NicheMapR) (Kearney & Porter 2017).
+
+A core component of our new BiophysicalEcology github group
+
+![](figures/be.png){.nostretch fig-align="center" width="70%"}
 
 # Microclimate modelling
 
@@ -21,9 +31,14 @@ author: "Rafael Schouten — Montpellier 2026"
 ::: {.columns}
 
 ::: {.column width="60%"}
-We need levers:
+*We need levers to easily switch between research modes*
 
-*To easily switch between research modes
+::: {.incremental}
+- spatial resolution
+- temporal resolution
+- formulation accuracy
+- formulation completeness
+:::
 :::
 
 ::: {.column width="40%"}
@@ -34,17 +49,15 @@ We need levers:
 
 :::
 
----
-
-# Our approach
+# The BiophyisicalEcology approach
 
 ::: {.incremental}
-- **Declarative**: scripts describe *what* to solve, not *how*
-- **Modular**: data sources and model component can be swapped for alternatives
-- **Univeral unit-checking**: temperatures, pressures, lengths, fluxes carry units that are checked.
-- **Readable**: formulations are short and look like the math in the paper
-- **Speed**: must be as fast or faster than existing packages
-- **Language**: Julia
+- {{< iconify ph:list-checks size=1.4em >}} &nbsp;**Declarative**: scripts describe *what* to solve, not *how*
+- {{< iconify mdi:toy-brick-outline size=1.4em >}} &nbsp;**Modular**: data sources and model component can be swapped for alternatives
+- {{< iconify ph:ruler size=1.4em >}} &nbsp;**Unit-safe**: temperatures, pressures, lengths, fluxes carry units that are checked.
+- {{< iconify ph:book-open-text size=1.4em >}} &nbsp;**Readable**: formulations are short and look like the math in the paper
+- {{< iconify ph:lightning size=1.4em >}} &nbsp;**Fast**: must be as fast or faster than existing packages
+- {{< iconify simple-icons:julia size=1.4em >}} &nbsp;**Language**: Julia
 :::
 ---
 
@@ -55,7 +68,8 @@ We need levers:
 ## Modularity (and units) example
 
 ::: {.vcenter}
-`FluidProperties.jl` provides `vapour_pressure` formulations
+`FluidProperties.jl` provides `vapour_pressure` formulations. 
+{{< iconify tabler:lever size=1.4em >}}
 
 ```julia
 using FluidProperties, Unitful
@@ -66,7 +80,7 @@ vp = vapour_pressure(Teten(), 0.0u"°C")
 vp = vapour_pressure(Huang(), 0.0u"°C")       
 
 # Or we can use a lookup table
-vplookup = VapourPressureLookup(GoffGratch())
+vplookup = VapourPressureLookup(GoffGratch()) # 🕹️
 vp = vapour_pressure(vplookup, 273.15u"K")
 ```
 
@@ -74,17 +88,14 @@ vp = vapour_pressure(vplookup, 273.15u"K")
 
 ---
 
-## Microclimate.jl
-
-A Julia rewrite of the core physics of [NicheMapR](https://github.com/mrke/NicheMapR) (Kearney & Porter 2017).
-
-
+::: {.vcenter}
 ::: {.fragment}
 ### Terminology
 
 **Model**: An abstract specification of a physical model without context
 
 **Problem**: A model with a specific place and time that we can `solve` it for
+:::
 :::
 
 ---
@@ -113,14 +124,14 @@ micro_model = MicroModel(;
         stomatal_stability_parameter = 10.0,
         root_radius                  = 0.001u"m",
     ),
-    snow_model = SnowModel(),
+    snow_model = SnowModel(), # 🕹️ NoSnow() if you dont need it
 )
 ```
 
 ---
 
 ::: {.vcenter}
-Combined with inputs we can define a `MicroProblem`
+Combined with forcings we can define a `MicroProblem`
 
 ```julia
 inputs = MicroInputs(;
@@ -147,23 +158,23 @@ We cheated using `example_inputs`, but that was still a lot of code!
 
 We dont want to do that repeatedly, we want to declare our datasources...
 :::                                         
-                  
  
 ---
 
 ## Declarative data sources: MicroclimateMapper.jl
 
 ::: {.vcenter}
-A `MicroMapModel` declares what data to use with a model
+A `MicroMapModel` declares what data to use with a model using
+`RasterDataSources.jl` data sources.
 
 ```julia
 using RasterDataSources # For SRTM, NCEP and others
 
 map_model = MicroMapModel(micro_model;   # Reuse the micro model
     dem_source = SRTM,                   # Download SRTM elevation tiles
-    weather_source = NCEP{SurfaceGauss}, # Use NCEP weather
+    weather_source = NCEP{SurfaceGauss}, # Use NCEP daily+hourly 🕹️
     surface_albedo_source = 0.15,        # We declare constants too
-    roughness_height_source = 0.004u"m", # They must have correct units!
+    roughness_height_source = 0.04u"m",  # Must have correct units!
 )
 ```
 :::                                         
@@ -208,9 +219,9 @@ output = solve(problem) # 63 seconds, 365 days 24 hours, laptop
 
 ---
 
-## Scaling up: `MicroRasterProblem`
+## Gridded outputs: `MicroRasterProblem`
 
-Like `MicroVectorProblem`, but with a raster `template` instead of points.
+Like `MicroVectorProblem`, but with a raster `template` instead of fixed points.
 
 ```julia
 area = Extent(X = (3.554, 3.608), Y = (44.095, 44.149))   # Mont Aigoual
@@ -219,10 +230,10 @@ template = SRTM # run on the SRTM grid
 soil_profile = example_soil_profile(depths),
 
 map_model = MicroMapModel(micro_model;         # Same micro model
-    dem_source = SRTM,                         # SRTM elevation
-    weather_source = TerraClimate{Historical}, # Terraclimate hourly
+    dem_source = SRTM,                         # SRTM elevation 
+    weather_source = TerraClimate{Historical}, # Terraclimate monthly+hourly 🕹️
     surface_albedo_source = 0.15,              # Contants
-    roughness_height_source = 0.004u"m",       # ...
+    roughness_height_source = 0.04u"m",       # ...
 )
 
 problem = MicroRasterProblem(map_model; area, years, template, soil_profile)
@@ -246,15 +257,15 @@ Shaded valleys take longer to warm up, east facing slopes are cooler in the afte
 # Lets use SRTM as a template, but larger area, lower resolution
 area = Extent(X=(3.33, 3.83), Y=(43.87, 44.37))
 srtm = Raster(SRTM; extent=area, lazy=true)
-template = aggregate(mean, crop(srtm; to=area, touches=true), 6)
+template = aggregate(mean, crop(srtm; to=area, touches=true), 6)  # 🕹️
 
 map_model = MicroMapModel(micro_model;
     dem_source = SRTM,
-    weather_source = NCEP{SurfaceGauss}, # Swap to NCEP daily
+    weather_source = NCEP{SurfaceGauss}, # NCEP daily+hourly 🕹️
     surface_albedo_source = 0.15,
-    roughness_height_source = 0.004u"m",
+    roughness_height_source = 0.04u"m",
 )
-problem = MicroRasterProblem(map_model; area, years, template, soil_profile)
+problem = MicroRasterProblem(map_model; area, years, soil_profile, template)
 output = solve(problem) # 27 minutes: 100x100, 24 hours 365 days - 87 million solves. Laptop. 
 ```
 :::
@@ -270,9 +281,10 @@ output = solve(problem) # 27 minutes: 100x100, 24 hours 365 days - 87 million so
 ::: {.vcenter}
 ::: {.incremental}
 - Microclimate.jl is validated against NicheMapR Fortran
+- BiophysicalEcology github organization is active with 20 repositories
 - Packages not yet registered, but soon!
-- Cold-air drainage and water runoff models on the way...
-- Users and contributions welcome, but not yet stable.
+- Cold-air drainage and water runoff models on the way in MicroclimateMapper.jl
+- Users and contributions welcome!
 :::
 :::
 
@@ -281,15 +293,16 @@ output = solve(problem) # 27 minutes: 100x100, 24 hours 365 days - 87 million so
 ## Thanks
 
 ::: {.incremental}
-- **Mike Kearney** (Melbourne) — NicheMapR, biophysical ecology vision
-- Open source contributors: JuliaGeo (spatial data), Makie (plots), SciML (solvers) ecosystems
+- **Mike Kearney** — NicheMapR, biophysical ecology vision
+- Open source foundations: JuliaGeo (spatial data), Makie (plots), SciML (solvers)
+- github.com/orgs/BiophysicalEcology/
 :::
 
 ::: {.fragment}
 
 ```{dot}
-//| fig-width: 10
-//| fig-height: 4.5
+//| fig-width: 12
+//| fig-height: 5.5
 digraph G {
   bgcolor="transparent";
   rankdir=LR;
@@ -391,6 +404,7 @@ digraph G {
 ```
 
 ::: {.diagram-legend}
+[BiophysicalEcology packages:]{.legend-title} &nbsp;&nbsp;
 [ ]{.swatch .existing} existing &nbsp;&nbsp;
 [ ]{.swatch .planned} planned &nbsp;&nbsp;
 [ ]{.swatch .external} external
